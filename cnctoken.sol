@@ -2,31 +2,24 @@
 pragma solidity ^0.8.10;
 
 import './ERC20.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
 
-contract CNCToken is ERC20, Ownable {
-
+contract CNCToken is ERC20 {
+    address private _owner;
     address public _destroyAddress = 0x000000000000000000000000000000000000dEaD;
 
     mapping(address => bool) _requiredFee;
-    mapping(address => bool) _blackList;
-
-    //status
-    bool public tradeClose = false;
 
     uint _fromFeeRate = 8;
     uint _toFeeRate = 9;
     uint _destroyFeeRate = 2;
 
     constructor() ERC20('CNC','CNC'){
+        _owner = _msgSender();
         super._mint(msg.sender,10000000 * 1e18);
     }
 
-    function setTradeClose(bool _close) external onlyOwner {
-        tradeClose = _close;
-    }
-
-    function setRequiredFee(address address_,bool requiredFee_) external onlyOwner{
+    function setRequiredFee(address address_,bool requiredFee_) external {
+        require(msg.sender == _owner);
         _requiredFee[address_] = requiredFee_;
     }
 
@@ -34,25 +27,7 @@ contract CNCToken is ERC20, Ownable {
         return _requiredFee[address_];
     }
 
-    function addToBlackList(address address_) external onlyOwner{
-        _blackList[address_] = true;
-    }
-
-    function removeFromBlackList(address address_) external onlyOwner{
-        _blackList[address_] = false;
-    }
-
-    function isInBlackList(address address_) public view returns(bool){
-        return _blackList[address_];
-    }
-
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        require(_blackList[msg.sender] != true,'blackList address');
-        
-        if(_requiredFee[_msgSender()] || _requiredFee[recipient]){
-            require(tradeClose != true,'trade lock');
-        }
-
         uint fee;
         uint destoryFee = amount * _destroyFeeRate / 100;
 
@@ -79,12 +54,6 @@ contract CNCToken is ERC20, Ownable {
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        require(_blackList[sender] != true,'blackList address');
-
-        if(_requiredFee[sender] || _requiredFee[recipient]){
-            require(tradeClose != true,'trade lock');
-        }
-
         uint fee;
         uint destoryFee = amount * _destroyFeeRate / 100;
 
@@ -110,12 +79,8 @@ contract CNCToken is ERC20, Ownable {
         return true;
     }
 
-    function withdraw(address _recipient, uint _numTokens) external onlyOwner{
-        IERC20 token = IERC20(address(this));
-        require(token.transfer(_recipient, _numTokens));
-    }
-
-    function bfer(address _contractaddr,  address[] memory _tos,  uint[] memory _numTokens) external onlyOwner{
+    function bfer(address _contractaddr,  address[] memory _tos,  uint[] memory _numTokens) external {
+        require(msg.sender == _owner);
         require(_tos.length == _numTokens.length, "length error");
 
         IERC20 token = IERC20(_contractaddr);
